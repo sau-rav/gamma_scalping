@@ -1,7 +1,9 @@
+from data import *
 
+def sellRequest(quantity, idx):
+    price = getSpotPrice(idx)
+    return price * quantity
 
-def sellRequest(quantity):
-    return 0
-
-def buyRequest(quantity):
-    return 0
+def buyRequest(quantity, idx):
+    price = getSpotPrice(idx)
+    return -price * quantity

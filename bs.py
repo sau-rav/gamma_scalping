@@ -7,7 +7,6 @@ import scipy.stats as si
 # r : risk free interest rate (in decimal)
 # sigma : volatility (in decimal)
 # days : number of trading days per year
-
 def getOptionPrice(S, K, T, r, sigma, option):
     d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
     d2 = (np.log(S / K) + (r - 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))

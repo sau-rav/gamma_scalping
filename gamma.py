@@ -12,37 +12,54 @@ class GammaScalping:
         self.p_expiry = put_expiry # time till expiration of put expressed in years
         self.c_contracts = num_contracts_call  # a contract contains of 100 options (of the type call or put)
         self.p_contracts = num_contracts_put
-        self.rate = risk_free_rate # gamma position is pos(long gamma) or neg(short gamma)
-        self.g_position = gamma_position # current position in terms of deltas
-        self.current_position = 0
-        self.delta_tolerence = 20
+        self.rate = risk_free_rate 
+        self.g_position = gamma_position # gamma position is long(long gamma) or short(short gamma)
+        self.delta_tolerence = 0
+        self.total_stocks = 0 # total number of stocks in hand
+        self.balance = self.getInitialBalance() 
+        self.deltaHedge(0)
 
-    def calcDelta(self):
-        spot_price = getSpotPrice()
+    def getInitialBalance(self):
+        spot_price = getSpotPrice(0)
+        sigma = getVolatility()
+        call_premium = getOptionPrice(spot_price, self.c_strike, self.c_expiry, self.rate, sigma, 'call')
+        put_premium = getOptionPrice(spot_price, self.p_strike, self.p_expiry, self.rate, sigma, 'put')
+        bal = -(call_premium * self.c_contracts * 100 + put_premium * self.p_contracts * 100)
+        print("Balance after spending premium : {}".format(bal))
+        return bal
+
+    def calcDelta(self, idx):
+        spot_price = getSpotPrice(idx)
         sigma = getVolatility()
 
-        call_delta = getDelta(spot_price, c_strike, c_expiry, rate, sigma, 'call')
-        put_delta = getDelta(spot_price, p_strike, p_expiry, rate, sigma, 'put')
-        delta_value = current_position + call_delta * c_contracts * 100 + put_delta * p_contracts * 100
+        call_delta = getDelta(spot_price, self.c_strike, self.c_expiry - idx / 365, self.rate, sigma, 'call')
+        print("call delta : {}".format(call_delta))
+        put_delta = getDelta(spot_price, self.p_strike, self.p_expiry - idx / 365, self.rate, sigma, 'put')
+        print("put delta : {}".format(put_delta))
+        delta_value = self.total_stocks + call_delta * self.c_contracts * 100 + put_delta * self.p_contracts * 100
         return delta_value
 
-    def deltaHedge(self):
-        delta = calcDelta()
-        if delta > 0 + delta_tolerence:
+    def deltaHedge(self, idx):
+        print("-----------Performing hedging.. at t = {}------------".format(idx))
+        delta = self.calcDelta(idx)
+        print("Total delta : {}".format(delta))
+        if delta > 0 + self.delta_tolerence:
             # initiate sell request
-            spot_price = getSpotPrice()
-            sell_quantity = delta / spot_price
-            delta_change = sellRequest(sell_quantity)
-            current_position = delta + delta_change
-        elif delta < 0 - delta_tolerence:
+            spot_price = getSpotPrice(idx)
+            sell_quantity = delta
+            balance_change = sellRequest(sell_quantity, idx)
+            self.balance += balance_change
+            self.total_stocks -= sell_quantity
+        elif delta < 0 - self.delta_tolerence:
             # initiate buy request
-            spot_price = getSpotPrice()
-            buy_quantity = delta / spot_price
-            delta_change = buyRequest(buyRequest)
-            current_position = delta + delta_change
-        return current_position
+            spot_price = getSpotPrice(idx)
+            buy_quantity = -delta
+            balance_change = buyRequest(buy_quantity, idx)
+            self.balance += balance_change
+            self.total_stocks += buy_quantity
+        # print("Final delta : {}".format(self.calcDelta(idx)))
+        return self.balance
     
-    def getCurrentPosition(self):
-        return current_position
+    
 
 
