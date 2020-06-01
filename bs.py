@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.stats as si
+from dataHandler import *
 
 # S : spot price
 # K : strike price
@@ -7,7 +8,7 @@ import scipy.stats as si
 # r : risk free interest rate (in decimal)
 # sigma : volatility (in decimal)
 # days : number of trading days per year
-def getOptionPrice(S, K, T, r, sigma, option):
+def getPrice(S, K, T, r, sigma, option):
     d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
     d2 = (np.log(S / K) + (r - 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
     
@@ -16,6 +17,12 @@ def getOptionPrice(S, K, T, r, sigma, option):
     if option == 'put':
         result = (K * np.exp(-r * T) * si.norm.cdf(-d2, 0.0, 1.0) - S * si.norm.cdf(-d1, 0.0, 1.0))
     return result
+
+def getImpliedVolatility(S, K, T, r, idx):
+    C = getOptionPrice(idx, 'call', 'avg')
+    res = C / (0.4 * S * np.exp(-r * T) * np.sqrt(T))
+    # np.sqrt((np.log(K / S) - r * T) / (T * (Er + 3 / 2))) # formula fron another research paper
+    return res
 
 def getDelta(S, K, T, r, sigma, option):
     d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
