@@ -1,39 +1,53 @@
 import pandas as pd
 import configparser
-from functions import *
 import datetime
+from functions import *
 
-data = pd.DataFrame() # trade data + order book data of asset, call(at strike = spot_price), put(at strike = spot_price), futures
-# asset_order_data = pd.DataFrame() # order book data to extract spot price for asset
-# call_order_data = pd.DataFrame() # call option order book data to extract spot price for call option of asset ##### (at the money strike price data required at every new buy instant)
-# put_order_data = pd.DataFrame() # put option order book data to extract spot price for put option of asset
-# future_order_data = pd.DataFrame() # future order book data to extract spot price for futures for hedging (expiring at month end)
-# using separate files for data may lead to misaligned data
+data = pd.DataFrame() # timestamp, order book data of future, call(at strike = predefined), put(at strike = predefined), historical_volatility, implied_volatility
 
-def initiateDatabase():
+def initiateDatabase(rolling_wind_size):
     # files required for initiating database, extracts name from a config file
     config = configparser.ConfigParser()
     config.readfp(open(r'config.txt'))
-    path1 = config.get('Data Section', 'path1')
-    # path2 = config.get('Data Section', 'path2')
-    # path3 = config.get('Data Section', 'path3')
-    # makes sure historical volatility is precalculated in database
+    path = config.get('Input Data Section', 'data_file_path')
+
     global data
-    data = pd.read_csv(path1)
+    data = pd.read_csv(path)
+    convertToNumeric()
+    calculateAvgFuturePrice()
+    calculateHistoricalVolatility(rolling_wind_size)
     return data.shape[0]
 
-def getSpotPrice(idx, type_of_data):
-    # returns spot price for the underlying asset from the dataset
-    if type_of_data == 'bid':
-        return data.loc[idx, 'asset_bid']
-    elif type_of_data == 'ask':
-        return data.loc[idx, 'asset_ask']
-    elif type_of_data == 'avg':
-        return (data.loc[idx, 'asset_bid'] + data.loc[idx, 'asset_ask']) / 2
+def convertToNumeric():
+    # converts string data in all columns to float
+    cols = data.columns.drop('timestamp')
+    data[cols] = data[cols].apply(pd.to_numeric, errors = 'coerce')
 
-def getOptionPrice(idx, option, type_of_data):
+def calculateAvgFuturePrice():
+    # adds col for futures average price 
+    data['future_avg'] = data[['future_bid', 'future_ask']].mean(axis = 1)
+
+def getSpotPrice(idx, rate, type_of_data):
+    # returns spot price for the underlying asset from the data available for future price by discounting
+    if type_of_data == 'bid':
+        return discountByRate(data.loc[idx, 'future_bid'], rate, getCurrentDate(idx))
+    elif type_of_data == 'ask':
+        return discountByRate(data.loc[idx, 'future_bid'], rate, getCurrentDate(idx))
+    elif type_of_data == 'avg':
+        return discountByRate(data.loc[idx, 'future_avg'], rate, getCurrentDate(idx))
+
+def getSpotPriceFuture(idx, type_of_data):
+    # return future price data from the dataset
+    if type_of_data == 'bid':
+        return data.loc[idx, 'future_bid']
+    elif type_of_data == 'ask':
+        return data.loc[idx, 'future_ask']
+    elif type_of_data == 'avg':
+        return data.loc[idx, 'future_avg']
+
+def getOptionPremium(idx, option, type_of_data):
+    # returns the option prices (bid, ask, avg) from the dataset
     if option == 'call':
-        # extract data from database
         if type_of_data == 'bid':
             return data[idx]['call_bid']
         elif type_of_data == 'ask':
@@ -41,7 +55,6 @@ def getOptionPrice(idx, option, type_of_data):
         elif type_of_data == 'avg':
             return (data[idx]['call_bid'] + data[idx]['call_ask']) / 2
     if option == 'put':
-        # extract data from database
         if type_of_data == 'bid':
             return data[idx]['put_bid']
         elif type_of_data == 'ask':
@@ -50,12 +63,23 @@ def getOptionPrice(idx, option, type_of_data):
             return (data[idx]['put_bid'] + data[idx]['put_ask']) / 2
 
 def getHistoricalVolatility(idx):
+    # returns the historical volatility at any index from the dataset
     return data.loc[idx, 'historical_volatility']
 
 def getCurrentDate(idx):
-    return datetime.datetime.strptime(data.loc[idx, 'timestamp'], '%Y-%m-%d %H:%M:%S').date()
+    # return current date for timestamp of any index
+    date = data.loc[idx, 'timestamp'].split(' ')[0]
+    year, month, day = date.split('/')
+    return datetime.datetime(int(year), int(month), int(day)).date()
 
-# print(initiateDatabase())
+def calculateHistoricalVolatility(rolling_wind_size):
+    # calculated the historical volatility by rolling window standard deviation on average futures prices
+    data['historical_volatility'] = data['future_avg'].rolling(rolling_wind_size).std()
+
+initiateDatabase(3)
+print(data)
+# calculateHistoricalVolatility()
 # print(data.head())
 # print("Loaded data..")   
 # print(getSpotPrice(1, 'avg')) 
+

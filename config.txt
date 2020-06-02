@@ -1,4 +1,10 @@
-[Data Section]
-path1 = dataset.csv
-path2 = data2.csv
-path3 = data3.csv
+[Input Data Section]
+data_file_path = dataset.csv
+
+[Output Data Section]
+output_file_path = trade_data.txt
+
+[Variable Section]
+rate = 0.069
+strike_price = 100
+offset = 30

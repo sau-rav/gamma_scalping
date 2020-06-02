@@ -8,7 +8,7 @@ from dataHandler import *
 # r : risk free interest rate (in decimal)
 # sigma : volatility (in decimal)
 # days : number of trading days per year
-def getPrice(S, K, T, r, sigma, option):
+def calculateOptionPremium(S, K, T, r, sigma, option):
     d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
     d2 = (np.log(S / K) + (r - 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
     
@@ -19,10 +19,10 @@ def getPrice(S, K, T, r, sigma, option):
     return result
 
 def getImpliedVolatility(S, K, T, r, idx):
-    C = getOptionPrice(idx, 'call', 'avg')
+    C = getOptionPremium(idx, 'call', 'avg')
     res = C / (0.4 * S * np.exp(-r * T) * np.sqrt(T)) 
     # np.sqrt((np.log(K / S) - r * T) / (T * (Er + 3 / 2))) # formula fron another research paper
-    return res / np.sqrt(252) # or res / np.sqrt(252) depending on what it exactly is (yearly or daily)
+    return res / np.sqrt(252) 
 
 def getDelta(S, K, T, r, sigma, option):
     d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))

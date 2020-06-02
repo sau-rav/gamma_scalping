@@ -26,8 +26,8 @@ class GammaScalping:
     def getInitialBalance(self):
         # spot_price = getSpotPrice(0, 'avg')
         # sigma = getImpliedVolatility(spot_price, self.c_strike, self.c_expiry, self.rate, 0)
-        call_premium = getOptionPrice(0, 'call', 'ask')
-        put_premium = getOptionPrice(0, 'put', 'ask')
+        call_premium = getOptionPremium(0, 'call', 'ask')
+        put_premium = getOptionPremium(0, 'put', 'ask')
         
         bal = 0
         if self.g_position == 'long':
@@ -38,7 +38,7 @@ class GammaScalping:
         return bal
 
     def calcDelta(self, idx):
-        spot_price = getSpotPrice(idx, 'avg') # mid price of bid ask
+        spot_price = getSpotPrice(idx, self.rate, 'avg') # mid price of bid ask
         sigma = getImpliedVolatility(spot_price, self.c_strike, self.c_expiry, self.rate, idx) 
 
         call_delta = getDelta(spot_price, self.c_strike, self.c_expiry, self.rate, sigma, 'call') # need to change c_expiry accoring to idx
