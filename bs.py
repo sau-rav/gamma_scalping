@@ -20,9 +20,9 @@ def getPrice(S, K, T, r, sigma, option):
 
 def getImpliedVolatility(S, K, T, r, idx):
     C = getOptionPrice(idx, 'call', 'avg')
-    res = C / (0.4 * S * np.exp(-r * T) * np.sqrt(T))
+    res = C / (0.4 * S * np.exp(-r * T) * np.sqrt(T)) 
     # np.sqrt((np.log(K / S) - r * T) / (T * (Er + 3 / 2))) # formula fron another research paper
-    return res
+    return res / np.sqrt(252) # or res / np.sqrt(252) depending on what it exactly is (yearly or daily)
 
 def getDelta(S, K, T, r, sigma, option):
     d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
@@ -54,3 +54,5 @@ def getVega(S, K, T, r, sigma):
 
     result = S * si.norm.pdf(d1, 0.0, 1.0) * np.sqrt(T)
     return result
+
+# print(getDelta(100, 100, .086, .069, .1, 'call'))

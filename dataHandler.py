@@ -1,5 +1,7 @@
 import pandas as pd
 import configparser
+from functions import *
+import datetime
 
 data = pd.DataFrame() # trade data + order book data of asset, call(at strike = spot_price), put(at strike = spot_price), futures
 # asset_order_data = pd.DataFrame() # order book data to extract spot price for asset
@@ -18,6 +20,7 @@ def initiateDatabase():
     # makes sure historical volatility is precalculated in database
     global data
     data = pd.read_csv(path1)
+    return data.shape[0]
 
 def getSpotPrice(idx, type_of_data):
     # returns spot price for the underlying asset from the dataset
@@ -46,7 +49,13 @@ def getOptionPrice(idx, option, type_of_data):
         elif type_of_data == 'avg':
             return (data[idx]['put_bid'] + data[idx]['put_ask']) / 2
 
-initiateDatabase()
-print(data.head())
-print("Loaded data..")   
-print(getSpotPrice(1, 'avg')) 
+def getHistoricalVolatility(idx):
+    return data.loc[idx, 'historical_volatility']
+
+def getCurrentDate(idx):
+    return datetime.datetime.strptime(data.loc[idx, 'timestamp'], '%Y-%m-%d %H:%M:%S').date()
+
+# print(initiateDatabase())
+# print(data.head())
+# print("Loaded data..")   
+# print(getSpotPrice(1, 'avg')) 
