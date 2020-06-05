@@ -6,7 +6,7 @@ from functions import *
 import datetime
 
 class GammaScalping:
-    def __init__(self, symbol, call_strike, put_strike, call_expiry, put_expiry, num_contracts_call, num_contracts_put, risk_free_rate, curr_date, gamma_position):
+    def __init__(self, symbol, call_strike, put_strike, call_expiry, put_expiry, num_contracts_call, num_contracts_put, risk_free_rate, curr_date, gamma_position, init_idx):
         self.s_symbol = symbol
         self.c_strike = call_strike # strike price of put option
         self.p_strike = put_strike # strike price of call option
@@ -19,22 +19,22 @@ class GammaScalping:
         self.rate = risk_free_rate 
         self.g_position = gamma_position # gamma position is long(long gamma) or short(short gamma)
         self.total_futures = 0 # total number of futures in hand, will hedge using futures
-        self.balance = self.getInitialBalance() 
+        self.balance = self.getInitialBalance(init_idx) 
         self.delta_tolerence = 0.5
-        self.deltaHedge(0)
+        self.deltaHedge(init_idx)
 
-    def getInitialBalance(self):
+    def getInitialBalance(self, init_idx):
         # spot_price = getSpotPrice(0, 'avg')
         # sigma = getImpliedVolatility(spot_price, self.c_strike, self.c_expiry, self.rate, 0)
-        call_premium = getOptionPremium(0, 'call', 'ask')
-        put_premium = getOptionPremium(0, 'put', 'ask')
+        call_premium = getOptionPremium(init_idx, 'call', 'ask')
+        put_premium = getOptionPremium(init_idx, 'put', 'ask')
         
         bal = 0
         if self.g_position == 'long':
             bal = -(call_premium * self.c_contracts * 100 + put_premium * self.p_contracts * 100)
         elif self.g_position == 'short':
             bal = (call_premium * self.c_contracts * 100 + put_premium * self.p_contracts * 100)
-        print("Balance after spending premium : {}".format(bal))
+        print("Balance after spending premium : {}\n".format(bal))
         return bal
 
     def calcDelta(self, idx):
@@ -61,7 +61,7 @@ class GammaScalping:
         self.c_expiry = (self.c_expiry_date - curr_date).days / 365
         self.p_expiry = (self.p_expiry_date - curr_date).days / 365
 
-        print("-----------Performing hedging.. at t = {}------------".format(idx))
+        print("-----------Performing hedging.. at idx = {} timestamp : {} ------------".format(idx, getTimeStamp(idx)))
         delta = self.calcDelta(idx)
         print("Total delta before hedge : {}".format(delta))
         
@@ -78,7 +78,7 @@ class GammaScalping:
             balance_change = buyRequest(buy_quantity, idx)
             self.balance += balance_change
             self.total_futures += buy_quantity
-            delta += sell_quantity
+            delta += buy_quantity
                     
         # print("Final delta : {}".format(self.calcDelta(idx)))
         print("Total delta after hedge : {}".format(delta))

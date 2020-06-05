@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.stats as si
 from dataHandler import *
+from requestHandler import *
 
 # S : spot price
 # K : strike price
@@ -20,6 +21,7 @@ def calculateOptionPremium(S, K, T, r, sigma, option):
 
 def getImpliedVolatility(S, K, T, r, idx):
     C = getOptionPremium(idx, 'call', 'avg')
+    # C = 31.30
     res = C / (0.4 * S * np.exp(-r * T) * np.sqrt(T)) 
     # np.sqrt((np.log(K / S) - r * T) / (T * (Er + 3 / 2))) # formula fron another research paper
     return res / np.sqrt(252) 
@@ -56,3 +58,5 @@ def getVega(S, K, T, r, sigma):
     return result
 
 # print(getDelta(100, 100, .086, .069, .1, 'call'))
+# print(getImpliedVolatility(424.85, 420, 22/365, 0.069, 1))
+# print(getDelta(425, 420, 22/365, 0.069, 0.04, 'call') + getDelta(425, 420, 22/365, 0.069, 0.04, 'put'))

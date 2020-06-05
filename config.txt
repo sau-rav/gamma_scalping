@@ -2,7 +2,7 @@
 data_file_path = dataset.csv
 
 [Output Data Section]
-output_file_path = trade_data.txt
+output_file_path = trade_data.csv
 
 [Variable Section]
 rate = 0.069

@@ -11,6 +11,7 @@ def openOutputFile():
     global path, output_file
     path = config.get('Output Data Section', 'output_file_path')
     output_file = open(path, "a") # append mode 
+    output_file.write("idx,timestamp,action,quantity,price\n")
 
 def closeOutputFile():
     global output_file
@@ -19,13 +20,15 @@ def closeOutputFile():
 def sellRequest(quantity, idx):
     price = getSpotPriceFuture(idx, 'bid')
     # write the trade to file
-    output_file.write("") 
+    curr_time = getTimeStamp(idx)
+    output_file.write("{},{},sell,{},{}\n".format(idx, curr_time, quantity, price)) 
     return price * quantity
 
 def buyRequest(quantity, idx):
     price = getSpotPriceFuture(idx, 'ask')
     # write the trade to file
-    output_file.write("") 
+    curr_time = getTimeStamp(idx)
+    output_file.write("{},{},buy,{},{}\n".format(idx, curr_time, quantity, price)) 
     return -price * quantity
 
 def appendToFile(str):
@@ -33,13 +36,13 @@ def appendToFile(str):
 
 # openOutputFile()
 # closeOutputFile()
-str = "2020/01/01 15:29:55.229"
-date = str.split(' ')[0]
-year, month, date = date.split('/')
-d1 = datetime.datetime(int(year), int(month), int(date)).date()
-d2 = getMonthEnd(d1)
-print(type(d1))
-print(d1)
-print(type(d2))
-print(d2)
-print((d2 - d1).days)
+# str = "2020/01/01 15:29:55.229"
+# date = str.split(' ')[0]
+# year, month, date = date.split('/')
+# d1 = datetime.datetime(int(year), int(month), int(date)).date()
+# d2 = getMonthEnd(d1)
+# print(type(d1))
+# print(d1)
+# print(type(d2))
+# print(d2)
+# print((d2 - d1).days)

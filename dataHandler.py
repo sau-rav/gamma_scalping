@@ -15,7 +15,8 @@ def initiateDatabase(rolling_wind_size):
     data = pd.read_csv(path)
     convertToNumeric()
     calculateAvgFuturePrice()
-    calculateHistoricalVolatility(rolling_wind_size)
+    # calculateHistoricalVolatility(rolling_wind_size) # for now assumed precalculated
+    print(data)
     return data.shape[0]
 
 def convertToNumeric():
@@ -49,18 +50,18 @@ def getOptionPremium(idx, option, type_of_data):
     # returns the option prices (bid, ask, avg) from the dataset
     if option == 'call':
         if type_of_data == 'bid':
-            return data[idx]['call_bid']
+            return data.loc[idx, 'call_bid']
         elif type_of_data == 'ask':
-            return data[idx]['call_ask']
+            return data.loc[idx, 'call_ask']
         elif type_of_data == 'avg':
-            return (data[idx]['call_bid'] + data[idx]['call_ask']) / 2
+            return (data.loc[idx, 'call_bid'] + data.loc[idx, 'call_ask']) / 2
     if option == 'put':
         if type_of_data == 'bid':
-            return data[idx]['put_bid']
+            return data.loc[idx, 'put_bid']
         elif type_of_data == 'ask':
-            return data[idx]['put_ask']
+            return data.loc[idx, 'put_ask']
         elif type_of_data == 'avg':
-            return (data[idx]['put_bid'] + data[idx]['put_ask']) / 2
+            return (data.loc[idx, 'put_bid'] + data.loc[idx, 'put_ask']) / 2
 
 def getHistoricalVolatility(idx):
     # returns the historical volatility at any index from the dataset
@@ -76,10 +77,18 @@ def calculateHistoricalVolatility(rolling_wind_size):
     # calculated the historical volatility by rolling window standard deviation on average futures prices
     data['historical_volatility'] = data['future_avg'].rolling(rolling_wind_size).std()
 
-initiateDatabase(3)
-print(data)
+def getIVFromDataset(idx):
+    return data.loc[idx, 'implied_volatility']
+
+def getTimeStamp(idx):
+    return data.loc[idx, 'timestamp']
+
+# initiateDatabase(0)
 # calculateHistoricalVolatility()
 # print(data.head())
 # print("Loaded data..")   
 # print(getSpotPrice(1, 'avg')) 
+# print(getSpotPrice(1, 0.069, 'avg'))
+# print(data.loc[1, 'call_ask'])
+# print(getOptionPremium(1, 'call', 'ask'))
 
