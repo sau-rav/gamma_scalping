@@ -10,6 +10,7 @@ def roundToNearestInt(val):
         return int(val) + 1
 
 def getMonthEnd(query_date):
+    return datetime.datetime(2020, 5, 29).date()
     last_day = calendar.monthrange(query_date.year, query_date.month)[1]
     return datetime.datetime(query_date.year, query_date.month, last_day).date()
 

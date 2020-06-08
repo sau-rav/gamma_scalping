@@ -10,6 +10,10 @@ def openOutputFile():
     config.readfp(open(r'config.txt'))
     global path, output_file
     path = config.get('Output Data Section', 'output_file_path')
+    erase_contents_file = open(path, 'r+') # clear previous data
+    erase_contents_file.truncate(0)
+    erase_contents_file.close()
+
     output_file = open(path, "a") # append mode 
     output_file.write("idx,timestamp,action,quantity,price\n")
 
@@ -18,14 +22,14 @@ def closeOutputFile():
     output_file.close()
 
 def sellRequest(quantity, idx):
-    price = getSpotPriceFuture(idx, 'bid')
+    price = getSpotPriceFuture(idx, 'avg')
     # write the trade to file
     curr_time = getTimeStamp(idx)
     output_file.write("{},{},sell,{},{}\n".format(idx, curr_time, quantity, price)) 
     return price * quantity
 
 def buyRequest(quantity, idx):
-    price = getSpotPriceFuture(idx, 'ask')
+    price = getSpotPriceFuture(idx, 'avg')
     # write the trade to file
     curr_time = getTimeStamp(idx)
     output_file.write("{},{},buy,{},{}\n".format(idx, curr_time, quantity, price)) 

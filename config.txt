@@ -1,10 +1,11 @@
 [Input Data Section]
-data_file_path = dataset.csv
+data_file_path = 60_sec.csv
 
 [Output Data Section]
 output_file_path = trade_data.csv
 
 [Variable Section]
 rate = 0.069
-strike_price = 100
-offset = 30
+strike_price = 9300
+offset = 100
+contract_size = 100
