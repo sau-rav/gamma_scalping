@@ -7,5 +7,8 @@ output_file_path = trade_data.csv
 [Variable Section]
 rate = 0.069
 strike_price = 9300
-offset = 100
+rolling_window_size = 50
 contract_size = 100
+iv_tolerence = 0.5
+
+[Expiry Date Section]

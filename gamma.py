@@ -6,14 +6,14 @@ from functions import *
 import datetime
 
 class GammaScalping:
-    def __init__(self, symbol, call_strike, put_strike, call_expiry, put_expiry, num_contracts_call, num_contracts_put, contr_size, risk_free_rate, curr_date, gamma_position, init_idx):
+    def __init__(self, symbol, call_strike, put_strike, call_expiry, put_expiry, num_contracts_call, num_contracts_put, contr_size, risk_free_rate, curr_date, gamma_position, init_idx, iv_tol):
         self.s_symbol = symbol
         self.c_strike = call_strike # strike price of put option
         self.p_strike = put_strike # strike price of call option
         self.c_expiry = call_expiry # time till expiration of call expressed in years
         self.p_expiry = put_expiry # time till expiration of put expressed in years
-        self.c_expiry_date = getMonthEnd(curr_date)
-        self.p_expiry_date = getMonthEnd(curr_date)
+        self.c_expiry_date = getExpiryDate(curr_date)
+        self.p_expiry_date = getExpiryDate(curr_date)
         self.contract_size = contr_size
         self.c_contracts = num_contracts_call  # a contract contains of contract_size options (of the type call or put)
         self.p_contracts = num_contracts_put
@@ -21,12 +21,11 @@ class GammaScalping:
         self.g_position = gamma_position # gamma position is long(long gamma) or short(short gamma)
         self.total_futures = 0 # total number of futures in hand, will hedge using futures
         self.balance = self.getInitialBalance(init_idx) 
-        self.delta_tolerence = 0.5
+        self.delta_tolerence = 1.5
+        self.iv_tolerence = iv_tol
         self.deltaHedge(init_idx)
 
     def getInitialBalance(self, init_idx):
-        # spot_price = getSpotPrice(0, 'avg')
-        # sigma = getImpliedVolatility(spot_price, self.c_strike, self.c_expiry, self.rate, 0)
         call_premium = getOptionPremium(init_idx, 'call', 'ask')
         put_premium = getOptionPremium(init_idx, 'put', 'ask')
         
@@ -40,25 +39,20 @@ class GammaScalping:
 
     def calcDelta(self, idx):
         spot_price = getSpotPrice(idx, self.rate, 'avg') # mid price of bid ask
-        sigma1 = getImpliedVolatilityBS(spot_price, self.c_strike, self.c_expiry, self.rate, idx) 
-        sigma = getImpliedVolatility(idx)
-        # print("sigma from dataset {}".format(sigma))
-        # print("sigma formulated {}".format(sigma1))
+        sigma = getImpliedVolatilityBS(spot_price, self.c_strike, self.c_expiry, self.rate, idx, self.iv_tolerence) 
+        # sigma = getImpliedVolatility(idx)
 
-        call_delta1 = getDeltaBS(spot_price, self.c_strike, self.c_expiry, self.rate, sigma, 'call') # need to change c_expiry accoring to idx
-        call_delta = getDelta(idx, 'call')
+        call_delta = getDeltaBS(spot_price, self.c_strike, self.c_expiry, self.rate, sigma, 'call') # need to change c_expiry accoring to idx
+        # call_delta = getDelta(idx, 'call')
         assert call_delta <= 1 and call_delta >= 0, 'Call delta not in range error'
-        # print("call delta : {}".format(call_delta)) # apply checks -> applied
-        # print("call delta formulated : {}".format(call_delta1))
-        assert(np.abs(call_delta - call_delta1) < 0.1)
-
-        put_delta1 = getDeltaBS(spot_price, self.p_strike, self.p_expiry, self.rate, sigma, 'put') # need to change the p_expiry according to idx (timestamp)
-        put_delta = getDelta(idx, 'put')
+        print("call delta : {}".format(call_delta)) # apply checks -> applied
+        
+        put_delta = getDeltaBS(spot_price, self.p_strike, self.p_expiry, self.rate, sigma, 'put') # need to change the p_expiry according to idx (timestamp)
+        # put_delta = getDelta(idx, 'put')
         assert put_delta <= 0 and put_delta >= -1, 'Put delta not in range error'
-        # print("put delta : {}".format(put_delta))
-        # print("put delta formulated : {}".format(put_delta1))
-        assert(np.abs(put_delta - put_delta1) < 0.05)
+        print("put delta : {}".format(put_delta))
 
+        delta_value = 0
         if self.g_position == 'long':
             delta_value = self.total_futures + call_delta * self.c_contracts * self.contract_size + put_delta * self.p_contracts * self.contract_size
         elif self.g_position == 'short':
@@ -71,9 +65,9 @@ class GammaScalping:
         self.c_expiry = (self.c_expiry_date - curr_date).days / 365
         self.p_expiry = (self.p_expiry_date - curr_date).days / 365
 
-        # print("-----------Performing hedging.. at idx = {} timestamp : {} ------------".format(idx, getTimeStamp(idx)))
+        print("-----------Performing hedging.. at idx = {} timestamp : {} ------------".format(idx, getTimeStamp(idx)))
         delta = self.calcDelta(idx)
-        # print("Total delta before hedge : {}".format(delta))
+        print("Total delta before hedge : {}".format(delta))
         
         if delta > 0 + self.delta_tolerence: ## look at round off while hedging -> handled
             # initiate sell request
@@ -90,8 +84,17 @@ class GammaScalping:
             self.total_futures += buy_quantity
             delta += buy_quantity
                     
-        # print("Final delta : {}".format(self.calcDelta(idx)))
-        # print("Total delta after hedge : {}".format(delta))
+        print("Total delta after hedge : {}".format(delta))
+        return self.balance
+
+    def closePosition(self, idx):
+        if self.total_futures > 0:
+            balance_change = sellRequest(self.total_futures, idx)
+        else: 
+            balance_change = buyRequest(-self.total_futures, idx)
+        price_of_options = getOptionPremium(idx, 'call', 'avg') * self.c_contracts * self.contract_size + getOptionPremium(idx, 'put', 'avg') * self.p_contracts * self.contract_size
+        self.balance += balance_change
+        self.balance += price_of_options
         return self.balance
     
     

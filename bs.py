@@ -36,7 +36,7 @@ def getImpliedVolatilityBS(S, K, T, r, idx, precision):
             iv_start = mid
         if np.abs(price_on_mid - C) < precision:
             break
-    return mid # avg of call_bid, call_ask
+    return mid 
 
 def getDeltaBS(S, K, T, r, sigma, option):
     d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))

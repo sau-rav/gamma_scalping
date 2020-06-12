@@ -10,11 +10,11 @@ def openOutputFile():
     config.readfp(open(r'config.txt'))
     global path, output_file
     path = config.get('Output Data Section', 'output_file_path')
-    erase_contents_file = open(path, 'r+') # clear previous data
+    erase_contents_file = open(path, 'w+') # clear previous data
     erase_contents_file.truncate(0)
     erase_contents_file.close()
 
-    output_file = open(path, "a") # append mode 
+    output_file = open(path, "a+") # append mode 
     output_file.write("idx,timestamp,action,quantity,price\n")
 
 def closeOutputFile():
@@ -50,3 +50,4 @@ def appendToFile(str):
 # print(type(d2))
 # print(d2)
 # print((d2 - d1).days)
+# print(testFunction())
