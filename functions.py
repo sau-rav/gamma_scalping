@@ -10,7 +10,7 @@ def roundToNearestInt(val):
         return int(val) + 1
 
 def getExpiryDate(query_date):
-    return datetime.datetime(2020, 5, 29).date()
+    return datetime.datetime(2020, 5, 29).date() # later do it according to the expiry date chart
     last_day = calendar.monthrange(query_date.year, query_date.month)[1]
     return datetime.datetime(query_date.year, query_date.month, last_day).date()
 

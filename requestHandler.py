@@ -15,39 +15,43 @@ def openOutputFile():
     erase_contents_file.close()
 
     output_file = open(path, "a+") # append mode 
-    output_file.write("idx,timestamp,action,quantity,price\n")
+    output_file.write("idx,timestamp,action,delta_before,delta_after,delta_change,quantity_traded,PnL_closing_futures,PnL_closing_options,PnL_total\n")
 
 def closeOutputFile():
     global output_file
     output_file.close()
 
-def sellRequest(quantity, idx):
-    price = getSpotPriceFuture(idx, 'avg')
+def sellRequest(quantity, idx, delta, total_futures, future_balance, option_cost_init, option_cost_final):
+    price = getSpotPriceFuture(idx, 'bid')
     # write the trade to file
     curr_time = getTimeStamp(idx)
-    output_file.write("{},{},sell,{},{}\n".format(idx, curr_time, quantity, price)) 
+    future_balance += price * quantity
+    total_futures -= quantity
+    profit_on_closing_futures = future_balance + getSpotPriceFuture(idx, 'ask') * total_futures
+    profit_on_closing_options = option_cost_final - option_cost_init
+    output_file.write("{},{},sell,{},{},{},{},{},{},{}\n".format(idx, curr_time, delta, delta - quantity, -quantity, quantity, profit_on_closing_futures, profit_on_closing_options, profit_on_closing_futures + profit_on_closing_options)) 
     return price * quantity
+    # also output delta before position and after hedging in the -> done 
+    # add PnL for futures and avegrage buy, sell price and current price
+    # then output it with the treade data
 
-def buyRequest(quantity, idx):
-    price = getSpotPriceFuture(idx, 'avg')
+def buyRequest(quantity, idx, delta, total_futures, future_balance, option_cost_init, option_cost_final):
+    price = getSpotPriceFuture(idx, 'ask')
     # write the trade to file
     curr_time = getTimeStamp(idx)
-    output_file.write("{},{},buy,{},{}\n".format(idx, curr_time, quantity, price)) 
+    future_balance += price * quantity
+    total_futures -= quantity
+    profit_on_closing_futures = future_balance + getSpotPriceFuture(idx, 'bid') * total_futures
+    profit_on_closing_options = option_cost_final - option_cost_init
+    output_file.write("{},{},buy,{},{},{},{},{},{},{}\n".format(idx, curr_time, delta, delta + quantity, quantity, quantity, profit_on_closing_futures, profit_on_closing_options, profit_on_closing_futures + profit_on_closing_options)) 
     return -price * quantity
+
+def writePositionDataToFile(idx, status):
+    curr_time = getTimeStamp(idx)
+    output_file.write("{},{},{},,,,,,,\n".format(idx, curr_time, status))
 
 def appendToFile(str):
     output_file.write(str)
 
 # openOutputFile()
 # closeOutputFile()
-# str = "2020/01/01 15:29:55.229"
-# date = str.split(' ')[0]
-# year, month, date = date.split('/')
-# d1 = datetime.datetime(int(year), int(month), int(date)).date()
-# d2 = getMonthEnd(d1)
-# print(type(d1))
-# print(d1)
-# print(type(d2))
-# print(d2)
-# print((d2 - d1).days)
-# print(testFunction())

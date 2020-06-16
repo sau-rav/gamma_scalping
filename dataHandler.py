@@ -2,16 +2,15 @@ import pandas as pd
 import numpy as np
 import configparser
 import datetime
-# import matplotlib.pyplot as plt
 from functions import *
 from bs import *
 
 data = pd.DataFrame() # timestamp, order book data of future, call(at strike = predefined), put(at strike = predefined), historical_volatility, implied_volatility
-# col names : 
+# col names :- 
 # index,time,timestamp,call_ask_iv,call_bid_iv,put_ask_iv,put_bid_iv,call_ask,call_bid,put_ask,put_bid,call_vega,put_vega,call_delta,put_delta,future_avg,future_ask,future_bid
 
 def initiateDatabase(rolling_wind_size):
-    # files required for initiating database, extracts name from a config file
+    # files required for initiating database, all config related data present in config.txt
     config = configparser.ConfigParser()
     config.readfp(open(r'config.txt'))
     path = config.get('Input Data Section', 'data_file_path')
@@ -19,9 +18,8 @@ def initiateDatabase(rolling_wind_size):
     global data
     data = pd.read_csv(path)
     convertToNumeric()
-    # calculateAvgFuturePrice()
+    # calculateAvgFuturePrice() # if future avg not calculated
     calculateHistoricalVolatility(rolling_wind_size, data.shape[0]) # for now assumed precalculated
-    print(data.tail())
     return data.shape[0]
 
 def convertToNumeric():
@@ -79,7 +77,7 @@ def getCurrentDate(idx):
     return datetime.datetime(int(year), int(month), int(day)).date()
 
 def calculateHistoricalVolatility(rolling_wind_size, dataset_size):
-    # calculated the historical volatility by rolling window standard deviation on average futures prices
+    # calculated the historical volatility by rolling window standard deviation on ln(daily_returns)
     # daily_return = [0] * dataset_size
     # for i in range (0, dataset_size - 1):
     #     daily_return[i] = np.log(data.loc[i, 'future_avg'] / data.loc[i+1, 'future_avg'])
@@ -88,7 +86,7 @@ def calculateHistoricalVolatility(rolling_wind_size, dataset_size):
     # data['daily_return'] = daily_return
     # data['historical_volatility'] = data['daily_return'].rolling(rolling_wind_size).std() * np.sqrt(252 / (rolling_wind_size / (12 * 24 * 60))) # converted to annual
 
-    data['historical_volatility'] = ((data['call_ask_iv'] + data['call_bid_iv']) / 2).rolling(rolling_wind_size).median()
+    data['historical_volatility'] = ((data['call_ask_iv'] + data['call_bid_iv']) / 2).rolling(rolling_wind_size).median() # currently taking median of the data since values not that accurate
 
 def getImpliedVolatility(idx):
     val = data.loc[idx, 'call_bid_iv'] + data.loc[idx, 'call_ask_iv'] + data.loc[idx, 'put_bid_iv'] + data.loc[idx, 'put_ask_iv']
@@ -104,13 +102,3 @@ def getDelta(idx, option):
     if option == 'put':
         result = data.loc[idx, 'put_delta']
     return result
-
-# initiateDatabase(100)
-# # calculateHistoricalVolatility()
-# print(data.tail())
-# print("Loaded data..")   
-# print(getSpotPrice(1, 'avg')) 
-# print(getSpotPrice(1, 0.069, 'avg'))
-# print(data.loc[1, 'call_ask'])
-# print(getOptionPremium(1, 'call', 'ask'))
-# testFunction()

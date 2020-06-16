@@ -1,9 +1,9 @@
 import numpy as np
+import datetime
 from bs import *
 from dataHandler import *
 from requestHandler import *
 from functions import *
-import datetime
 
 class GammaScalping:
     def __init__(self, symbol, call_strike, put_strike, call_expiry, put_expiry, num_contracts_call, num_contracts_put, contr_size, risk_free_rate, curr_date, gamma_position, init_idx, iv_tol):
@@ -18,44 +18,55 @@ class GammaScalping:
         self.c_contracts = num_contracts_call  # a contract contains of contract_size options (of the type call or put)
         self.p_contracts = num_contracts_put
         self.rate = risk_free_rate 
-        self.g_position = gamma_position # gamma position is long(long gamma) or short(short gamma)
+        self.g_position = gamma_position # gamma position is LONG(LONG gamma) or SHORT(SHORT gamma)
         self.total_futures = 0 # total number of futures in hand, will hedge using futures
-        self.balance = self.getInitialBalance(init_idx) 
-        self.delta_tolerence = 1.5
+        self.option_cost_initial = self.optionCostHelperFunction(init_idx, 'ENTER') # take bid or ask price according to position while entering into the position
+        self.future_balance = 0 
+        self.delta_tolerence = 0.5
         self.iv_tolerence = iv_tol
         self.deltaHedge(init_idx)
 
-    def getInitialBalance(self, init_idx):
-        call_premium = getOptionPremium(init_idx, 'call', 'ask')
-        put_premium = getOptionPremium(init_idx, 'put', 'ask')
-        
-        bal = 0
-        if self.g_position == 'long':
-            bal = -(call_premium * self.c_contracts * self.contract_size + put_premium * self.p_contracts * self.contract_size)
-        elif self.g_position == 'short':
-            bal = (call_premium * self.c_contracts * self.contract_size + put_premium * self.p_contracts * self.contract_size)
-        print("Balance after spending premium : {}\n".format(bal))
-        return bal
+    def optionCostHelperFunction(self, idx, signal):
+        if signal == 'ENTER':
+            if self.g_position == 'LONG':
+                return self.getOptionsPositionCost(idx, 'ask')
+            elif self.g_position == 'SHORT':
+                return self.getOptionsPositionCost(idx, 'bid')
+        elif signal == 'EXIT':
+            if self.g_position == 'LONG':
+                return self.getOptionsPositionCost(idx, 'bid')
+            elif self.g_position == 'SHORT':
+                return self.getOptionsPositionCost(idx, 'ask')
+
+    def getOptionsPositionCost(self, init_idx, type_of_price):
+        call_premium = getOptionPremium(init_idx, 'call', type_of_price)
+        put_premium = getOptionPremium(init_idx, 'put', type_of_price)
+
+        bal = call_premium * self.c_contracts * self.contract_size + put_premium * self.p_contracts * self.contract_size
+        if self.g_position == 'LONG':
+            return bal
+        elif self.g_position == 'SHORT':
+            return -bal
 
     def calcDelta(self, idx):
         spot_price = getSpotPrice(idx, self.rate, 'avg') # mid price of bid ask
         sigma = getImpliedVolatilityBS(spot_price, self.c_strike, self.c_expiry, self.rate, idx, self.iv_tolerence) 
         # sigma = getImpliedVolatility(idx)
 
-        call_delta = getDeltaBS(spot_price, self.c_strike, self.c_expiry, self.rate, sigma, 'call') # need to change c_expiry accoring to idx
         # call_delta = getDelta(idx, 'call')
+        call_delta = getDeltaBS(spot_price, self.c_strike, self.c_expiry, self.rate, sigma, 'call') 
         assert call_delta <= 1 and call_delta >= 0, 'Call delta not in range error'
-        print("call delta : {}".format(call_delta)) # apply checks -> applied
+        # print("call delta : {}".format(call_delta)) # apply checks -> applied
         
-        put_delta = getDeltaBS(spot_price, self.p_strike, self.p_expiry, self.rate, sigma, 'put') # need to change the p_expiry according to idx (timestamp)
         # put_delta = getDelta(idx, 'put')
+        put_delta = getDeltaBS(spot_price, self.p_strike, self.p_expiry, self.rate, sigma, 'put') 
         assert put_delta <= 0 and put_delta >= -1, 'Put delta not in range error'
-        print("put delta : {}".format(put_delta))
+        # print("put delta : {}".format(put_delta))
 
         delta_value = 0
-        if self.g_position == 'long':
+        if self.g_position == 'LONG':
             delta_value = self.total_futures + call_delta * self.c_contracts * self.contract_size + put_delta * self.p_contracts * self.contract_size
-        elif self.g_position == 'short':
+        elif self.g_position == 'SHORT':
             delta_value = self.total_futures - call_delta * self.c_contracts * self.contract_size - put_delta * self.p_contracts * self.contract_size
         return delta_value
 
@@ -65,37 +76,34 @@ class GammaScalping:
         self.c_expiry = (self.c_expiry_date - curr_date).days / 365
         self.p_expiry = (self.p_expiry_date - curr_date).days / 365
 
-        print("-----------Performing hedging.. at idx = {} timestamp : {} ------------".format(idx, getTimeStamp(idx)))
+        # print("-----------Performing hedging.. at idx = {} timestamp : {} ------------".format(idx, getTimeStamp(idx)))
         delta = self.calcDelta(idx)
-        print("Total delta before hedge : {}".format(delta))
+        options_cost_current = self.optionCostHelperFunction(idx, 'EXIT')
         
-        if delta > 0 + self.delta_tolerence: ## look at round off while hedging -> handled
+        if delta > 0 + self.delta_tolerence:
             # initiate sell request
             sell_quantity = roundToNearestInt(delta)
-            balance_change = sellRequest(sell_quantity, idx)
-            self.balance += balance_change
+            balance_change = sellRequest(sell_quantity, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current)
+            self.future_balance += balance_change
             self.total_futures -= sell_quantity
             delta -= sell_quantity
         elif delta < 0 - self.delta_tolerence:
             # initiate buy request
             buy_quantity = roundToNearestInt(-delta)
-            balance_change = buyRequest(buy_quantity, idx)
-            self.balance += balance_change
+            balance_change = buyRequest(buy_quantity, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current)
+            self.future_balance += balance_change
             self.total_futures += buy_quantity
             delta += buy_quantity
-                    
-        print("Total delta after hedge : {}".format(delta))
-        return self.balance
 
     def closePosition(self, idx):
+        delta = self.calcDelta(idx)
+        options_cost_current = self.optionCostHelperFunction(idx, 'EXIT')
+
         if self.total_futures > 0:
-            balance_change = sellRequest(self.total_futures, idx)
+            balance_change = sellRequest(self.total_futures, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current)
         else: 
-            balance_change = buyRequest(-self.total_futures, idx)
-        price_of_options = getOptionPremium(idx, 'call', 'avg') * self.c_contracts * self.contract_size + getOptionPremium(idx, 'put', 'avg') * self.p_contracts * self.contract_size
-        self.balance += balance_change
-        self.balance += price_of_options
-        return self.balance
+            balance_change = buyRequest(-self.total_futures, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current)
+        # return self.balance
     
     
 

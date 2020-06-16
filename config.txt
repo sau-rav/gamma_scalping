@@ -8,7 +8,11 @@ output_file_path = trade_data.csv
 rate = 0.069
 strike_price = 9300
 rolling_window_size = 50
+neg_signal_tolerence = 5
 contract_size = 100
+num_call_to_trade = 1
+num_put_to_trade = 1
 iv_tolerence = 0.5
+iv_hv_diff_tolerence = 0.1
 
 [Expiry Date Section]
