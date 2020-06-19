@@ -1,18 +1,27 @@
 [Input Data Section]
-data_file_path = 60_sec.csv
+path1 = ./data/11MayBankNiftyData.csv
+path2 = ./data/11MayHDFCData.csv
+path3 = ./data/11MayNiftyData.csv
+path4 = ./data/12MayBankNiftyData.csv
+path5 = ./data/12MayNiftyData.csv
+data_file_path = ./data/60_sec.csv
 
 [Output Data Section]
-output_file_path = trade_data.csv
+output_file_path = ./output/trade_data.csv
 
 [Variable Section]
 rate = 0.069
 strike_price = 9300
 rolling_window_size = 50
 neg_signal_tolerence = 5
+first_signal_tolerence = 1
 contract_size = 100
 num_call_to_trade = 1
 num_put_to_trade = 1
 iv_tolerence = 0.5
 iv_hv_diff_tolerence = 0.1
+square_off_count = 20
+break_off_profit = 300
+break_off_loss = 50
 
 [Expiry Date Section]

@@ -24,6 +24,8 @@ class GammaScalping:
         self.future_balance = 0 
         self.delta_tolerence = 0.5
         self.iv_tolerence = iv_tol
+        self.profit_count = 0
+        self.loss_count = 0
         self.deltaHedge(init_idx)
 
     def optionCostHelperFunction(self, idx, signal):
@@ -79,30 +81,32 @@ class GammaScalping:
         # print("-----------Performing hedging.. at idx = {} timestamp : {} ------------".format(idx, getTimeStamp(idx)))
         delta = self.calcDelta(idx)
         options_cost_current = self.optionCostHelperFunction(idx, 'EXIT')
+        response = 'NEUTRAL'
         
         if delta > 0 + self.delta_tolerence:
             # initiate sell request
             sell_quantity = roundToNearestInt(delta)
-            balance_change = sellRequest(sell_quantity, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current)
+            [balance_change, response, self.profit_count, self.loss_count] = sellRequest(sell_quantity, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current, self.profit_count, self.loss_count)
             self.future_balance += balance_change
             self.total_futures -= sell_quantity
             delta -= sell_quantity
         elif delta < 0 - self.delta_tolerence:
             # initiate buy request
             buy_quantity = roundToNearestInt(-delta)
-            balance_change = buyRequest(buy_quantity, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current)
+            [balance_change, response, self.profit_count, self.loss_count] = buyRequest(buy_quantity, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current, self.profit_count, self.loss_count)
             self.future_balance += balance_change
             self.total_futures += buy_quantity
             delta += buy_quantity
+        return response
 
     def closePosition(self, idx):
         delta = self.calcDelta(idx)
         options_cost_current = self.optionCostHelperFunction(idx, 'EXIT')
 
         if self.total_futures > 0:
-            balance_change = sellRequest(self.total_futures, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current)
+            [balance_change, response, self.profit_count, self.loss_count] = sellRequest(self.total_futures, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current, self.profit_count, self.loss_count)
         else: 
-            balance_change = buyRequest(-self.total_futures, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current)
+            [balance_change, response, self.profit_count, self.loss_count] = buyRequest(-self.total_futures, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current, self.profit_count, self.loss_count)
         # return self.balance
     
     

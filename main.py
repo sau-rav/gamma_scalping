@@ -16,16 +16,23 @@ NUM_PUT = int(config.get('Variable Section', 'num_put_to_trade'))
 IV_TOLERENCE = float(config.get('Variable Section', 'iv_tolerence'))
 IV_HV_DIFF_TOLERENCE = float(config.get('Variable Section', 'iv_hv_diff_tolerence')) # difference over which IV and HV diff will not be tolerated and some position will be taken
 NEG_SIGNAL_TOLERENCE = int(config.get('Variable Section', 'neg_signal_tolerence')) # count of negative signal that will be tolerated, after this reverse position will be taken
+SQUARE_OFF_COUNT = int(config.get('Variable Section', 'square_off_count'))
+# FIRST_SIGNAL_TOLERENCE = int(config.get('Variable Section', 'first_signal_tolerence'))
 
 dataset_size = initiateDatabase(ROLLLING_WINDOW_SIZE)
-# dataset_size = ROLLLING_WINDOW_SIZE + 10 # for now(let) for calculation purpose
+# [dataset_size, STRIKE_PRICE] = initiateDatabase(ROLLLING_WINDOW_SIZE) # load size and strike price from the dataset itself
 openOutputFile()
+loadBreakOffParams()
 
-idx = ROLLLING_WINDOW_SIZE
 STATUS = 'NEUTRAL'
 SIGNAL = 'NEUTRAL'
 LAST_SIGNAL = 'NEUTRAL'
+COUNT_TYPE = 'cumulative' # change it to continous for continous counting of the signal
+RESPONSE = 'NEUTRAL'
+
+idx = ROLLLING_WINDOW_SIZE
 neg_signal_count = 1
+sq_off_count = 0
 gamma_scalp = None
 
 for i in range(idx, dataset_size):
@@ -53,25 +60,55 @@ for i in range(idx, dataset_size):
         continue
     elif STATUS == 'NEUTRAL' and SIGNAL != STATUS:
         if SIGNAL == LAST_SIGNAL:
-            neg_signal_count += 1
+            neg_signal_count += 1 # continous count for the initial signal acceptance when status is neutral
         else:
-            neg_signal_count = 1
-        if neg_signal_count >= NEG_SIGNAL_TOLERENCE:
+            neg_signal_count = 1 # continous count variable
+        if neg_signal_count >= NEG_SIGNAL_TOLERENCE: # change this value for some tolerence in the initial signal acceptance initial signal count is taken as continous count variable
             STATUS = SIGNAL
-            writePositionDataToFile(i, STATUS + ' START')
+            writePositionDataToFile(i, STATUS + ' START : NEUTRAL')
             gamma_scalp = GammaScalping('ABC', S, STRIKE_PRICE, T, T, NUM_CALL, NUM_PUT, SZ_CONTRACT, RISK_FREE_RATE, curr_date, STATUS, i, IV_TOLERENCE)
             neg_signal_count = 0
+            sq_off_count = 0
+
     elif SIGNAL == 'NEUTRAL' or STATUS == SIGNAL:
-        gamma_scalp.deltaHedge(i)
-        if SIGNAL == 'NEUTRAL':
+        sq_off_count += 1
+        if SIGNAL == 'NEUTRAL' and COUNT_TYPE == 'continous':
+            neg_signal_count += 1 # if continous count
+        if sq_off_count >= SQUARE_OFF_COUNT:
+            sq_off_count = 0
+            neg_signal_count = 0 # other option is neg_signal_count = neg_signal_count // 2
+        RESPONSE = gamma_scalp.deltaHedge(i)
+        if RESPONSE != 'NEUTRAL':
+            gamma_scalp.closePosition(i)
+            writePositionDataToFile(i, STATUS + ' EXIT : RESPONSE ' + RESPONSE)
+            # if RESPONSE == 'EXIT_P':
+            #     writePositionDataToFile(i, STATUS + ' START : ' + RESPONSE)
+            #     gamma_scalp = GammaScalping('ABC', S, STRIKE_PRICE, T, T, NUM_CALL, NUM_PUT, SZ_CONTRACT, RISK_FREE_RATE, curr_date, STATUS, i, IV_TOLERENCE)
+            # else:
+            #     STATUS = 'NEUTRAL'
+            # else:
+            #     if STATUS == 'LONG':
+            #         STATUS = 'SHORT'
+            #     else:
+            #         STATUS = 'LONG'
+            #     writePositionDataToFile(i, STATUS + ' START')
+            #     gamma_scalp = GammaScalping('ABC', S, STRIKE_PRICE, T, T, NUM_CALL, NUM_PUT, SZ_CONTRACT, RISK_FREE_RATE, curr_date, STATUS, i, IV_TOLERENCE)
+            STATUS = 'NEUTRAL'
+            sq_off_count = 0
             neg_signal_count = 0
     else:
         neg_signal_count += 1
-        if neg_signal_count >= NEG_SIGNAL_TOLERENCE:
-            gamma_scalp.closePosition(i)
-            writePositionDataToFile(i, STATUS + ' EXIT')
-            STATUS = SIGNAL
-            writePositionDataToFile(i, STATUS + ' START')
-            gamma_scalp = GammaScalping('ABC', S, STRIKE_PRICE, T, T, NUM_CALL, NUM_PUT, SZ_CONTRACT, RISK_FREE_RATE, curr_date, STATUS, i, IV_TOLERENCE)
+        sq_off_count += 1
+        if neg_signal_count >= NEG_SIGNAL_TOLERENCE or sq_off_count >= SQUARE_OFF_COUNT:
+            if neg_signal_count >= NEG_SIGNAL_TOLERENCE:
+                gamma_scalp.closePosition(i)
+                writePositionDataToFile(i, STATUS + ' EXIT : NEG_SIGNAL')
+                STATUS = SIGNAL
+                writePositionDataToFile(i, STATUS + ' START : NEG_SIGNAL')
+                gamma_scalp = GammaScalping('ABC', S, STRIKE_PRICE, T, T, NUM_CALL, NUM_PUT, SZ_CONTRACT, RISK_FREE_RATE, curr_date, STATUS, i, IV_TOLERENCE)
+                neg_signal_count = 0
+            else:
+                neg_signal_count = 0 # other option is neg_signal_count = neg_signal_count // 2
+            sq_off_count = 0
 
 closeOutputFile()
