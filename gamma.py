@@ -8,6 +8,7 @@ from functions import *
 class GammaScalping:
     def __init__(self, symbol, call_strike, put_strike, call_expiry, put_expiry, num_contracts_call, num_contracts_put, contr_size, risk_free_rate, curr_date, gamma_position, init_idx, iv_tol):
         self.s_symbol = symbol
+        self.start_timestamp = getTimeStamp(init_idx)
         self.c_strike = call_strike # strike price of put option
         self.p_strike = put_strike # strike price of call option
         self.c_expiry = call_expiry # time till expiration of call expressed in years
@@ -87,14 +88,14 @@ class GammaScalping:
         if delta > 0 + self.delta_tolerence:
             # initiate sell request
             sell_quantity = roundToNearestInt(delta)
-            [balance_change, response, self.profit_count, self.loss_count] = sellRequest(sell_quantity, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current, self.profit_count, self.loss_count)
+            [balance_change, response, self.profit_count, self.loss_count] = sellRequest('HEDGE', sell_quantity, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current, self.profit_count, self.loss_count)
             self.future_balance += balance_change
             self.total_futures -= sell_quantity
             delta -= sell_quantity
         elif delta < 0 - self.delta_tolerence:
             # initiate buy request
             buy_quantity = roundToNearestInt(-delta)
-            [balance_change, response, self.profit_count, self.loss_count] = buyRequest(buy_quantity, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current, self.profit_count, self.loss_count)
+            [balance_change, response, self.profit_count, self.loss_count] = buyRequest('HEDGE', buy_quantity, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current, self.profit_count, self.loss_count)
             self.future_balance += balance_change
             self.total_futures += buy_quantity
             delta += buy_quantity
@@ -104,11 +105,12 @@ class GammaScalping:
         delta = self.calcDelta(idx)
         options_cost_current = self.optionCostHelperFunction(idx, 'EXIT')
 
+        total_pnl = 0
         if self.total_futures > 0:
-            [balance_change, response, self.profit_count, self.loss_count] = sellRequest(self.total_futures, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current, self.profit_count, self.loss_count)
+            total_pnl = sellRequest('EXIT', self.total_futures, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current, self.profit_count, self.loss_count)
         else: 
-            [balance_change, response, self.profit_count, self.loss_count] = buyRequest(-self.total_futures, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current, self.profit_count, self.loss_count)
-        # return self.balance
+            total_pnl = buyRequest('EXIT', -self.total_futures, idx, delta, self.total_futures, self.future_balance, self.option_cost_initial, options_cost_current, self.profit_count, self.loss_count)
+        return total_pnl
     
     
 

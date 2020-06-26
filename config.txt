@@ -8,6 +8,7 @@ data_file_path = ./data/60_sec.csv
 
 [Output Data Section]
 output_file_path = ./output/trade_data.csv
+summary_file_path = ./output/summary_data.csv
 
 [Variable Section]
 rate = 0.069

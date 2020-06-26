@@ -3,9 +3,12 @@ import numpy as np
 import configparser
 import datetime
 import matplotlib.pyplot as plt
+import os
+from pathlib import Path
 from functions import *
 from bs import *
 
+current_directory = ''
 data = pd.DataFrame() # timestamp, order book data of future, call(at strike = predefined), put(at strike = predefined), historical_volatility, implied_volatility
 # col names :- 
 # index,time,timestamp,call_ask_iv,call_bid_iv,put_ask_iv,put_bid_iv,call_ask,call_bid,put_ask,put_bid,call_vega,put_vega,call_delta,put_delta,future_avg,future_ask,future_bid
@@ -16,7 +19,11 @@ def initiateDatabase(rolling_wind_size, STRIKE_PRICE, RISK_FREE_RATE, IV_TOLEREN
     config.readfp(open(r'config.txt'))
     path = config.get('Input Data Section', 'path5')
 
-    global data
+    global data, current_directory
+    # for graphical data 
+    current_directory = os.getcwd()
+    Path(current_directory + '/output/graphs').mkdir(parents = True, exist_ok = True)
+    # read data from file
     data = pd.read_csv(path)
     convertToNumeric()
     # calculateAvgFuturePrice() # if future avg not calculated
@@ -130,8 +137,40 @@ def getDelta(idx, option):
     return result
 
 def plotHV_IV():
+    global current_directory
     # plt.plot(data['index'], (data['call_bid_iv'] + data['call_ask_iv'] + data['put_bid_iv'] + data['put_ask_iv']) / 4, label = 'iv_data')
+    plt.clf()
     plt.plot(data['index'], data['implied_volatility'], label = 'iv_calc')
     plt.plot(data['index'], data['historical_volatility'], label = 'hv_calc')
-    plt.savefig('iv_vs_hv.png')
-    plt.show()
+    plt.savefig(current_directory + '/output/graphs/iv_vs_hv.svg', format = 'svg', dpi = 1200)
+    # plt.show()
+
+def plotTrades(trade_index_data):
+    global current_directory
+    for i in range(len(trade_index_data)):
+        indexes = trade_index_data[i][0]
+        clr = ''
+        if trade_index_data[i][1] == 'profit':
+            clr = 'green'
+        else:
+            clr = 'red'
+        # plt.plot(data['index'], data['implied_volatility'], label = 'iv_calc', color = 'yellow')
+        plt.clf()
+        plt.plot(data['index'], data['implied_volatility'], label = 'iv_calc', color = 'yellow')
+        plt.plot(data['index'], data['historical_volatility'], label = 'hv_calc', color = 'cyan')
+        plt.plot([data.loc[i, 'index'] for i in indexes], [data.loc[i, 'implied_volatility'] for i in indexes], color = clr)
+        plt.savefig(current_directory + '/output/graphs/trade-data{}.svg'.format(i), format = 'svg', dpi = 1200)
+    
+    plt.clf()
+    plt.plot(data['index'], data['implied_volatility'], label = 'iv_calc', color = 'yellow')
+    plt.plot(data['index'], data['historical_volatility'], label = 'hv_calc', color = 'cyan')
+    for i in range(len(trade_index_data)):
+        indexes = trade_index_data[i][0]
+        clr = ''
+        if trade_index_data[i][1] == 'profit':
+            clr = 'green'
+        else:
+            clr = 'red'
+        plt.plot([data.loc[i, 'index'] for i in indexes], [data.loc[i, 'implied_volatility'] for i in indexes], color = clr)
+    plt.savefig(current_directory + '/output/graphs/all_trades_data.svg', format = 'svg', dpi = 1200)
+

@@ -35,6 +35,12 @@ idx = ROLLLING_WINDOW_SIZE
 neg_signal_count = 1
 sq_off_count = 0
 gamma_scalp = None
+all_trades_indexes = []
+current_trade_indexes = []
+entry_hv = 0
+entry_iv = 0
+entry_timestamp = ''
+total_pnl = 0
 
 for i in range(idx, dataset_size):
     hist_volatility = getHistoricalVolatility(i) * 100 # in percent format
@@ -48,10 +54,10 @@ for i in range(idx, dataset_size):
     
     if impl_volatility < hist_volatility and abs(impl_volatility - hist_volatility) > IV_HV_DIFF_TOLERENCE: # some difference tolerence
         LAST_SIGNAL = SIGNAL
-        SIGNAL = 'SHORT'  # long
+        SIGNAL = 'LONG'  # long
     elif impl_volatility > hist_volatility and abs(impl_volatility - hist_volatility) > IV_HV_DIFF_TOLERENCE:
         LAST_SIGNAL = SIGNAL
-        SIGNAL = 'LONG'  # short
+        SIGNAL = 'SHORT'  # short
     else:
         LAST_SIGNAL = SIGNAL
         SIGNAL = 'NEUTRAL'
@@ -63,15 +69,19 @@ for i in range(idx, dataset_size):
             neg_signal_count += 1 # continous count for the initial signal acceptance when status is neutral
         else:
             neg_signal_count = 1 # continous count variable
-        if neg_signal_count >= NEG_SIGNAL_TOLERENCE: # change this value for some tolerence in the initial signal acceptance initial signal count is taken as continous count variable
+        if neg_signal_count >= NEG_SIGNAL_TOLERENCE / 2: # change this value for some tolerence in the initial signal acceptance initial signal count is taken as continous count variable
             STATUS = SIGNAL
-            writePositionDataToFile(i, STATUS + ' START : NEUTRAL')
+            writePositionDataToTradeFile(i, STATUS + ' START : NEUTRAL')
             gamma_scalp = GammaScalping('ABC', S, STRIKE_PRICE, T, T, NUM_CALL, NUM_PUT, SZ_CONTRACT, RISK_FREE_RATE, curr_date, STATUS, i, IV_TOLERENCE)
+            entry_hv = hist_volatility
+            entry_iv = impl_volatility
+            entry_timestamp = getTimeStamp(i)
             neg_signal_count = 0
             sq_off_count = 0
 
     elif SIGNAL == 'NEUTRAL' or STATUS == SIGNAL:
         sq_off_count += 1
+        current_trade_indexes.append(i)
         if SIGNAL == 'NEUTRAL' and COUNT_TYPE == 'continous':
             neg_signal_count += 1 # if continous count
         if sq_off_count >= SQUARE_OFF_COUNT:
@@ -79,36 +89,50 @@ for i in range(idx, dataset_size):
             neg_signal_count = 0 # other option is neg_signal_count = neg_signal_count // 2
         RESPONSE = gamma_scalp.deltaHedge(i)
         if RESPONSE != 'NEUTRAL':
-            gamma_scalp.closePosition(i)
-            writePositionDataToFile(i, STATUS + ' EXIT : RESPONSE ' + RESPONSE)
-            # if RESPONSE == 'EXIT_P':
-            #     writePositionDataToFile(i, STATUS + ' START : ' + RESPONSE)
-            #     gamma_scalp = GammaScalping('ABC', S, STRIKE_PRICE, T, T, NUM_CALL, NUM_PUT, SZ_CONTRACT, RISK_FREE_RATE, curr_date, STATUS, i, IV_TOLERENCE)
-            # else:
-            #     STATUS = 'NEUTRAL'
-            # else:
-            #     if STATUS == 'LONG':
-            #         STATUS = 'SHORT'
-            #     else:
-            #         STATUS = 'LONG'
-            #     writePositionDataToFile(i, STATUS + ' START')
-            #     gamma_scalp = GammaScalping('ABC', S, STRIKE_PRICE, T, T, NUM_CALL, NUM_PUT, SZ_CONTRACT, RISK_FREE_RATE, curr_date, STATUS, i, IV_TOLERENCE)
+            total_pnl = gamma_scalp.closePosition(i)
+            # trade points for graph
+            if total_pnl > 0:
+                all_trades_indexes.append([current_trade_indexes, 'profit'])
+            else:
+                all_trades_indexes.append([current_trade_indexes, 'loss'])
+            current_trade_indexes = []
+            # write data to file for analysis
+            writePositionDataToTradeFile(i, STATUS + ' EXIT : RESPONSE ' + RESPONSE)
+            writeToSummaryFile(entry_timestamp, getTimeStamp(i), gamma_scalp.g_position, entry_iv, entry_hv, impl_volatility, hist_volatility, total_pnl, RESPONSE)
             STATUS = 'NEUTRAL'
             sq_off_count = 0
             neg_signal_count = 0
     else:
         neg_signal_count += 1
         sq_off_count += 1
+        current_trade_indexes.append(i)
         if neg_signal_count >= NEG_SIGNAL_TOLERENCE or sq_off_count >= SQUARE_OFF_COUNT:
             if neg_signal_count >= NEG_SIGNAL_TOLERENCE:
-                gamma_scalp.closePosition(i)
-                writePositionDataToFile(i, STATUS + ' EXIT : NEG_SIGNAL')
-                STATUS = SIGNAL
-                writePositionDataToFile(i, STATUS + ' START : NEG_SIGNAL')
-                gamma_scalp = GammaScalping('ABC', S, STRIKE_PRICE, T, T, NUM_CALL, NUM_PUT, SZ_CONTRACT, RISK_FREE_RATE, curr_date, STATUS, i, IV_TOLERENCE)
-                neg_signal_count = 0
-            else:
-                neg_signal_count = 0 # other option is neg_signal_count = neg_signal_count // 2
+                total_pnl = gamma_scalp.closePosition(i)
+                # trade points for graph
+                if total_pnl > 0:
+                    all_trades_indexes.append([current_trade_indexes, 'profit'])
+                else:
+                    all_trades_indexes.append([current_trade_indexes, 'loss'])
+                current_trade_indexes = []
+                # write data to file for analysis
+                writePositionDataToTradeFile(i, STATUS + ' EXIT : NEG_SIGNAL')
+                writeToSummaryFile(entry_timestamp, getTimeStamp(i), gamma_scalp.g_position, entry_iv, entry_hv, impl_volatility, hist_volatility, total_pnl, 'NEG_SIGNAL')
+                STATUS = 'NEUTRAL'
+            elif sq_off_count >= SQUARE_OFF_COUNT:
+                total_pnl = gamma_scalp.closePosition(i)
+                # trade points for graph
+                if total_pnl > 0:
+                    all_trades_indexes.append([current_trade_indexes, 'profit'])
+                else:
+                    all_trades_indexes.append([current_trade_indexes, 'loss'])
+                current_trade_indexes = []
+                # write data to file for analysis
+                writePositionDataToTradeFile(i, STATUS + ' EXIT : SQR_OFF')
+                writeToSummaryFile(entry_timestamp, getTimeStamp(i), gamma_scalp.g_position, entry_iv, entry_hv, impl_volatility, hist_volatility, total_pnl, 'SQR_OFF')
+                STATUS = 'NEUTRAL'    
             sq_off_count = 0
+            neg_signal_count = 0
 
 closeOutputFile()
+plotTrades(all_trades_indexes)
