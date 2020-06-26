@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import configparser
 import datetime
+import matplotlib.pyplot as plt
 from functions import *
 from bs import *
 
@@ -9,17 +10,19 @@ data = pd.DataFrame() # timestamp, order book data of future, call(at strike = p
 # col names :- 
 # index,time,timestamp,call_ask_iv,call_bid_iv,put_ask_iv,put_bid_iv,call_ask,call_bid,put_ask,put_bid,call_vega,put_vega,call_delta,put_delta,future_avg,future_ask,future_bid
 
-def initiateDatabase(rolling_wind_size):
+def initiateDatabase(rolling_wind_size, STRIKE_PRICE, RISK_FREE_RATE, IV_TOLERENCE):
     # files required for initiating database, all config related data present in config.txt
     config = configparser.ConfigParser()
     config.readfp(open(r'config.txt'))
-    path = config.get('Input Data Section', 'data_file_path')
+    path = config.get('Input Data Section', 'path5')
 
     global data
     data = pd.read_csv(path)
     convertToNumeric()
     # calculateAvgFuturePrice() # if future avg not calculated
+    calculateImpliedVolatility(data.shape[0], STRIKE_PRICE, RISK_FREE_RATE, IV_TOLERENCE)
     calculateHistoricalVolatility(rolling_wind_size, data.shape[0]) # for now assumed precalculated
+    plotHV_IV()
     return data.shape[0]
 
 def convertToNumeric():
@@ -76,6 +79,14 @@ def getCurrentDate(idx):
     year, month, day = date.split('/')
     return datetime.datetime(int(year), int(month), int(day)).date()
 
+def getCurrentTime(idx):
+    date = data.loc[idx, 'timestamp'].split(' ')[0]
+    time = data.loc[idx, 'timestamp'].split(' ')[1]
+    year, month, day = date.split('/')
+    hour, min, sec = time.split(':')
+    sec = sec.split('.')[0]
+    return datetime.datetime(int(year), int(month), int(day), int(hour), int(min), int(sec)).time()
+
 def calculateHistoricalVolatility(rolling_wind_size, dataset_size):
     # calculated the historical volatility by rolling window standard deviation on ln(daily_returns)
     # daily_return = [0] * dataset_size
@@ -86,11 +97,26 @@ def calculateHistoricalVolatility(rolling_wind_size, dataset_size):
     # data['daily_return'] = daily_return
     # data['historical_volatility'] = data['daily_return'].rolling(rolling_wind_size).std() * np.sqrt(252 / (rolling_wind_size / (12 * 24 * 60))) # converted to annual
 
-    data['historical_volatility'] = ((data['call_ask_iv'] + data['call_bid_iv']) / 2).rolling(rolling_wind_size).median() # currently taking median of the data since values not that accurate
+    # data['historical_volatility'] = (data['implied_volatility']).rolling(rolling_wind_size).median() 
+    data['historical_volatility'] = (data['implied_volatility']).ewm(span = 500).mean()
+
+def calculateImpliedVolatility(dataset_size, STRIKE_PRICE, RISK_FREE_RATE, IV_TOLERENCE):
+    iv_values = []
+    for i in range(dataset_size):
+        S = getSpotPrice(i, RISK_FREE_RATE, 'avg')
+        curr_date = getCurrentDate(i)
+        curr_time = getCurrentTime(i)
+        T = ((getExpiryDate(curr_date) - curr_date).days - convertMinutesToDays(curr_time)) / 365
+        C = getOptionPremium(i, 'call', 'avg')
+        iv = getImpliedVolatilityBS(C, S, STRIKE_PRICE, T, RISK_FREE_RATE, i, IV_TOLERENCE)
+        iv_values.append(iv)
+    data['implied_volatility'] = iv_values
+    # data['implied_volatility'] = data['implied_volatility'].ewm(span = 20).mean()
 
 def getImpliedVolatility(idx):
-    val = data.loc[idx, 'call_bid_iv'] + data.loc[idx, 'call_ask_iv'] + data.loc[idx, 'put_bid_iv'] + data.loc[idx, 'put_ask_iv']
-    val /= 4
+    # val = data.loc[idx, 'call_bid_iv'] + data.loc[idx, 'call_ask_iv'] + data.loc[idx, 'put_bid_iv'] + data.loc[idx, 'put_ask_iv']
+    # val /= 4
+    val = data.loc[idx, 'implied_volatility']
     return val
 
 def getTimeStamp(idx):
@@ -102,3 +128,10 @@ def getDelta(idx, option):
     if option == 'put':
         result = data.loc[idx, 'put_delta']
     return result
+
+def plotHV_IV():
+    # plt.plot(data['index'], (data['call_bid_iv'] + data['call_ask_iv'] + data['put_bid_iv'] + data['put_ask_iv']) / 4, label = 'iv_data')
+    plt.plot(data['index'], data['implied_volatility'], label = 'iv_calc')
+    plt.plot(data['index'], data['historical_volatility'], label = 'hv_calc')
+    plt.savefig('iv_vs_hv.png')
+    plt.show()

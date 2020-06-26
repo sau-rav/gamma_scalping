@@ -10,9 +10,14 @@ def roundToNearestInt(val):
         return int(val) + 1
 
 def getExpiryDate(query_date):
-    return datetime.datetime(2020, 5, 29).date() # later do it according to the expiry date chart
+    return datetime.datetime(2020, 5, 28).date() # later do it according to the expiry date chart
     last_day = calendar.monthrange(query_date.year, query_date.month)[1]
     return datetime.datetime(query_date.year, query_date.month, last_day).date()
+
+def convertMinutesToDays(query_time):
+    total_time = 375
+    diff_in_minutes = (query_time.hour - 9) * 60 + query_time.minute - 15
+    return diff_in_minutes / total_time
 
 def discountByRate(future_price, rate, curr_date):
     time = (getExpiryDate(curr_date) - curr_date).days / 365 # number of years

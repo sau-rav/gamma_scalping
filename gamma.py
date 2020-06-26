@@ -52,8 +52,9 @@ class GammaScalping:
 
     def calcDelta(self, idx):
         spot_price = getSpotPrice(idx, self.rate, 'avg') # mid price of bid ask
-        sigma = getImpliedVolatilityBS(spot_price, self.c_strike, self.c_expiry, self.rate, idx, self.iv_tolerence) 
-        # sigma = getImpliedVolatility(idx)
+        C = getOptionPremium(idx, 'call', 'avg')
+        # sigma = getImpliedVolatilityBS(C, spot_price, self.c_strike, self.c_expiry, self.rate, idx, self.iv_tolerence) 
+        sigma = getImpliedVolatility(idx)
 
         # call_delta = getDelta(idx, 'call')
         call_delta = getDeltaBS(spot_price, self.c_strike, self.c_expiry, self.rate, sigma, 'call') 

@@ -1,7 +1,5 @@
 import numpy as np
 import scipy.stats as si
-from dataHandler import *
-from requestHandler import *
 
 # S : spot price
 # K : strike price
@@ -20,12 +18,7 @@ def getOptionPremiumBS(S, K, T, r, sigma, option):
         result = (K * np.exp(-r * T) * si.norm.cdf(-d2, 0.0, 1.0) - S * si.norm.cdf(-d1, 0.0, 1.0))
     return result
 
-def getImpliedVolatilityBS(S, K, T, r, idx, precision):
-    C = getOptionPremium(idx, 'call', 'avg')
-    # res = C / (0.4 * S * np.exp(-r * T) * np.sqrt(T)) 
-    # return res
-    # np.sqrt((np.log(K / S) - r * T) / (T * (Er + 3 / 2))) # formula fron another research paper
-    # using binary search with some precision for the implied volatility value
+def getImpliedVolatilityBS(C, S, K, T, r, idx, precision):
     iv_start = 0
     iv_end = 1
     while True:
@@ -69,3 +62,6 @@ def getVegaBS(S, K, T, r, sigma):
 
     result = S * si.norm.pdf(d1, 0.0, 1.0) * np.sqrt(T)
     return result
+
+def testFunction():
+    print("log")

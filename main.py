@@ -19,7 +19,8 @@ NEG_SIGNAL_TOLERENCE = int(config.get('Variable Section', 'neg_signal_tolerence'
 SQUARE_OFF_COUNT = int(config.get('Variable Section', 'square_off_count'))
 # FIRST_SIGNAL_TOLERENCE = int(config.get('Variable Section', 'first_signal_tolerence'))
 
-dataset_size = initiateDatabase(ROLLLING_WINDOW_SIZE)
+dataset_size = initiateDatabase(ROLLLING_WINDOW_SIZE, STRIKE_PRICE, RISK_FREE_RATE, IV_TOLERENCE)
+# dataset_size = ROLLLING_WINDOW_SIZE + 10
 # [dataset_size, STRIKE_PRICE] = initiateDatabase(ROLLLING_WINDOW_SIZE) # load size and strike price from the dataset itself
 openOutputFile()
 loadBreakOffParams()
@@ -37,13 +38,12 @@ gamma_scalp = None
 
 for i in range(idx, dataset_size):
     hist_volatility = getHistoricalVolatility(i) * 100 # in percent format
+    impl_volatility = getImpliedVolatility(i) * 100 # in percent format
 
+    # parameters 
     S = getSpotPrice(i, RISK_FREE_RATE, 'avg')
     curr_date = getCurrentDate(i)
     T = (getExpiryDate(curr_date) - curr_date).days / 365
-    impl_volatility = getImpliedVolatilityBS(S, STRIKE_PRICE, T, RISK_FREE_RATE, i, IV_TOLERENCE) * 100 # in percent format
-    # impl_volatility = getImpliedVolatility(i)
-    # print("implied volatility : {}, calculated : {}".format(impl_volatility, impl_volatility))
     # print("historical volatility {} %, implied volatility {} %".format(hist_volatility, impl_volatility))
     
     if impl_volatility < hist_volatility and abs(impl_volatility - hist_volatility) > IV_HV_DIFF_TOLERENCE: # some difference tolerence
