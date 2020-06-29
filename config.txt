@@ -13,14 +13,14 @@ summary_file_path = ./output/summary_data.csv
 [Variable Section]
 rate = 0.069
 strike_price = 9300
-rolling_window_size = 50
+rolling_window_size = 500
 neg_signal_tolerence = 5
 first_signal_tolerence = 1
 contract_size = 100
 num_call_to_trade = 1
 num_put_to_trade = 1
 iv_tolerence = 0.01
-iv_hv_diff_tolerence = 0.1
+iv_hv_diff_tolerence = 0.15
 square_off_count = 20
 break_off_profit = 300
 break_off_loss = 50

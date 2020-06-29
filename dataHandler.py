@@ -4,6 +4,7 @@ import configparser
 import datetime
 import matplotlib.pyplot as plt
 import os
+import glob
 from pathlib import Path
 from functions import *
 from bs import *
@@ -23,6 +24,10 @@ def initiateDatabase(rolling_wind_size, STRIKE_PRICE, RISK_FREE_RATE, IV_TOLEREN
     # for graphical data 
     current_directory = os.getcwd()
     Path(current_directory + '/output/graphs').mkdir(parents = True, exist_ok = True)
+    # remove preexisting files if present
+    files = glob.glob(current_directory + '/output/graphs/*')
+    for f in files:
+        os.remove(f)
     # read data from file
     data = pd.read_csv(path)
     convertToNumeric()
@@ -105,7 +110,7 @@ def calculateHistoricalVolatility(rolling_wind_size, dataset_size):
     # data['historical_volatility'] = data['daily_return'].rolling(rolling_wind_size).std() * np.sqrt(252 / (rolling_wind_size / (12 * 24 * 60))) # converted to annual
 
     # data['historical_volatility'] = (data['implied_volatility']).rolling(rolling_wind_size).median() 
-    data['historical_volatility'] = (data['implied_volatility']).ewm(span = 500).mean()
+    data['historical_volatility'] = (data['implied_volatility']).ewm(span = rolling_wind_size).mean()
 
 def calculateImpliedVolatility(dataset_size, STRIKE_PRICE, RISK_FREE_RATE, IV_TOLERENCE):
     iv_values = []
@@ -114,11 +119,12 @@ def calculateImpliedVolatility(dataset_size, STRIKE_PRICE, RISK_FREE_RATE, IV_TO
         curr_date = getCurrentDate(i)
         curr_time = getCurrentTime(i)
         T = ((getExpiryDate(curr_date) - curr_date).days - convertMinutesToDays(curr_time)) / 365
+        # T = ((getExpiryDate(curr_date) - curr_date).days + 0.5) / 365 
         C = getOptionPremium(i, 'call', 'avg')
         iv = getImpliedVolatilityBS(C, S, STRIKE_PRICE, T, RISK_FREE_RATE, i, IV_TOLERENCE)
         iv_values.append(iv)
     data['implied_volatility'] = iv_values
-    # data['implied_volatility'] = data['implied_volatility'].ewm(span = 20).mean()
+    data['implied_volatility'] = data['implied_volatility'].ewm(span = 20).mean()
 
 def getImpliedVolatility(idx):
     # val = data.loc[idx, 'call_bid_iv'] + data.loc[idx, 'call_ask_iv'] + data.loc[idx, 'put_bid_iv'] + data.loc[idx, 'put_ask_iv']
@@ -138,9 +144,9 @@ def getDelta(idx, option):
 
 def plotHV_IV():
     global current_directory
-    # plt.plot(data['index'], (data['call_bid_iv'] + data['call_ask_iv'] + data['put_bid_iv'] + data['put_ask_iv']) / 4, label = 'iv_data')
     plt.clf()
-    plt.plot(data['index'], data['implied_volatility'], label = 'iv_calc')
+    # plt.plot(data['index'], (data['call_bid_iv'] + data['call_ask_iv'] + data['put_bid_iv'] + data['put_ask_iv']) / 4, label = 'iv_data', color = 'orange')
+    plt.plot(data['index'], data['implied_volatility'], color = 'blue')
     plt.plot(data['index'], data['historical_volatility'], label = 'hv_calc')
     plt.savefig(current_directory + '/output/graphs/iv_vs_hv.svg', format = 'svg', dpi = 1200)
     # plt.show()
